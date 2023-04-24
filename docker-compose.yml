@@ -1,0 +1,64 @@
+version: "2.1"
+services:
+  wireguard:
+    image: lscr.io/linuxserver/wireguard:latest
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Riga
+      - SERVERURL=auto
+      - SERVERPORT=51820
+      - PEERS=1
+      - PEERDNS=auto
+      - INTERNAL_SUBNET=10.13.13.0
+      - ALLOWEDIPS=10.13.13.0/24
+      - LOG_CONFS=true
+    volumes:
+      - ./config:/config
+      - ./lib/modules:/lib/modules
+    ports:
+      - 51820:51820/udp
+      - 8080:80
+    networks:
+      - WireNext
+    sysctls:
+      - net.ipv4.conf.all.src_valid_mark=1
+    restart: unless-stopped
+
+  nextcloud:
+    depends_on:
+      - wireguard
+      - mariadb
+    image: nextcloud
+    environment:
+      - MYSQL_PASSWORD=
+      - MYSQL_DATABASE=nextcloud
+      - MYSQL_USER=usernext
+      - MYSQL_HOST=mariadb
+    volumes:
+      - ./nextcloud/html:/var/www/html
+    network_mode: "service:wireguard"
+    restart: unless-stopped
+
+  mariadb:
+    image: lscr.io/linuxserver/mariadb:latest
+    environment:
+      - PUID=1002
+      - PGID=1002
+      - TZ=Europe/Riga
+      - MYSQL_ROOT_PASSWORD=
+      - MYSQL_DATABASE=nextcloud
+      - MYSQL_USER=usernext
+      - MYSQL_PASSWORD=
+    volumes:
+      - ./db/config:/config
+    networks:
+      - WireNext
+    restart: unless-stopped
+
+networks:
+  WireNext:
+    driver: bridge
